@@ -7,7 +7,7 @@ use MT::Plugin;
 
 use vars qw($PLUGIN_NAME $VERSION);
 $PLUGIN_NAME = 'TaggingHelper';
-$VERSION = '0.4';
+$VERSION = '0.5';
 
 use MT;
 my $plugin = new MT::Plugin::TaggingHelper({
@@ -23,7 +23,7 @@ my $plugin = new MT::Plugin::TaggingHelper({
 MT->add_plugin($plugin);
 
 my $mt_version = MT->version_number;
-if ($mt_version =~ /^5/){
+if ($mt_version =~ /^[56]/){
     MT->add_callback('template_param.edit_entry', 9, $plugin, \&hdlr_mt5_param);
 }
 elsif ($mt_version =~ /^4/){
@@ -92,7 +92,7 @@ sub _build_html {
 
 <script type="text/javascript">
 // simple js syntax, because MT3.3 dosen't have js library.
-// just use RegExp.escape; which appear both MT3.3 and MT4. 
+// just use RegExp.escape; which appear both MT3.3 and MT4.
 
 var TaggingHelper = new Object();
 
@@ -161,7 +161,7 @@ TaggingHelper.action = function (evt) {
     var e = evt || window.event;
     var a = e.target || e.srcElement;
     var s = a.th_tag;
-    
+
     var v = document.getElementById('tags').value;
     var exp = new RegExp("^(.*, ?)?" + RegExp.escape(s) + "( ?\,.*)?$");
     if (exp.test(v)) {
@@ -204,7 +204,7 @@ EOT
 
     my $getbody4 = <<'EOT';
 TaggingHelper.getBody = function () {
-    // for MT 4
+    // for MT 4 - 5.1
     // get both current editting field and hidden input fields.
     // currently i don't care about duplication.
     // but it's very nasty. FIXME!
@@ -216,14 +216,38 @@ TaggingHelper.getBody = function () {
 }
 EOT
 
-    my $getbody = ($mt_version =~ /^[45]/) ? $getbody4 : $getbody3;
+    my $getbody5 = <<'EOT';
+TaggingHelper.getBody = function () {
+    // for MT 5.2 - 6
+    // still nasty. FIXME!
+    return app.editor.getContent()
+         + '\n'
+         + document.getElementById('editor-input-content').value
+         + '\n'
+         + document.getElementById('editor-input-extended').value;
+}
+EOT
+
+
+    my $getbody;
+    if ($mt_version =~ /^5\.2|^6/){
+      $getbody = $getbody5;
+    }
+    elsif ($mt_version =~ /^4|^5\.[01]/){
+      $getbody = $getbody4;
+    }
+    else {
+      $getbody = $getbody3;
+    }
+
+
     $html =~ s/__getbody/$getbody/;
     return $plugin->translate_templatized($html);
 }
 
 sub hdlr_mt3_source {
     my ($eh, $app, $tmpl) = @_;
-    my $html = _build_html(); 
+    my $html = _build_html();
     my $pattern = quotemeta(<<'EOT');
 <!--[if lte IE 6.5]><div id="iehack"><![endif]-->
 <div id="tags_completion" class="full-width"></div>
@@ -284,4 +308,3 @@ sub hdlr_mt5_param {
 }
 
 1;
-
